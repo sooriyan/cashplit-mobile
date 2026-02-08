@@ -1,11 +1,11 @@
 {
   "expo": {
     "name": "Cashplit",
-    "slug": "cashplit-mobile",
+    "slug": "cashplit",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "cashplitmobile",
+    "scheme": "cashplit",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
@@ -25,7 +25,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.sooriyan.cashplitmobile"
+      "package": "com.sooriyan.cashplit"
     },
     "web": {
       "bundler": "metro",
