@@ -1,18 +1,22 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  RefreshControl,
-  ActivityIndicator,
-} from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import api from '../../services/api';
 import { Colors } from '@/constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Avatar } from '../../components/Avatar';
+import api from '../../services/api';
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface Group {
   _id: string;
@@ -34,7 +38,8 @@ export default function DashboardScreen() {
   const fetchData = async () => {
     try {
       const res = await api.getGroups();
-      setGroups(res.data);
+      const sortedGroups = res.data.sort((a: Group, b: Group) => b._id.localeCompare(a._id));
+      setGroups(sortedGroups);
 
       // Fetch balances for each group
       const balancePromises = res.data.map(async (group: Group) => {
@@ -85,91 +90,102 @@ export default function DashboardScreen() {
         onPress={() => router.push(`/group/${item._id}`)}
         activeOpacity={0.7}
       >
-        <View style={styles.groupCardHeader}>
-          <Text style={styles.groupName} numberOfLines={1}>{item.name}</Text>
-          {groupBalance !== 0 && (
-            <View style={[
-              styles.balanceBadge,
-              { backgroundColor: groupBalance > 0 ? Colors.dark.primaryFaded : Colors.dark.dangerFaded }
-            ]}>
-              <Text style={[
-                styles.balanceBadgeText,
-                { color: groupBalance > 0 ? Colors.dark.primary : Colors.dark.danger }
+        <Avatar name={item.name} size={50} fontSize={20} rounded={true} />
+        <View style={styles.groupCardContent}>
+          <View style={styles.groupCardHeader}>
+            <Text style={styles.groupName} numberOfLines={1}>{item.name}</Text>
+            {groupBalance !== 0 && (
+              <View style={[
+                styles.balanceBadge,
+                { backgroundColor: groupBalance > 0 ? Colors.dark.primaryFaded : Colors.dark.dangerFaded }
               ]}>
-                {groupBalance > 0 ? '+' : '-'}₹{Math.abs(groupBalance).toFixed(0)}
-              </Text>
-            </View>
+                <Text style={[
+                  styles.balanceBadgeText,
+                  { color: groupBalance > 0 ? Colors.dark.primary : Colors.dark.danger }
+                ]}>
+                  {groupBalance > 0 ? '+' : '-'}₹{Math.abs(groupBalance).toFixed(0)}
+                </Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.groupCardMeta}>
+            <Ionicons name="people-outline" size={14} color={Colors.dark.textSecondary} />
+            <Text style={styles.memberCount}>{item.members.length} members</Text>
+          </View>
+          {groupBalance !== 0 ? (
+            <Text style={[
+              styles.balanceText,
+              { color: groupBalance > 0 ? Colors.dark.primary : Colors.dark.danger }
+            ]}>
+              {groupBalance > 0 ? 'You are owed' : 'You owe'} ₹{Math.abs(groupBalance).toFixed(2)}
+            </Text>
+          ) : (
+            <Text style={styles.settledText}>All settled up ✓</Text>
           )}
         </View>
-        <View style={styles.groupCardMeta}>
-          <Ionicons name="people-outline" size={14} color={Colors.dark.textSecondary} />
-          <Text style={styles.memberCount}>{item.members.length} members</Text>
-        </View>
-        {groupBalance !== 0 ? (
-          <Text style={[
-            styles.balanceText,
-            { color: groupBalance > 0 ? Colors.dark.primary : Colors.dark.danger }
-          ]}>
-            {groupBalance > 0 ? 'You are owed' : 'You owe'} ₹{Math.abs(groupBalance).toFixed(2)}
-          </Text>
-        ) : (
-          <Text style={styles.settledText}>All settled up ✓</Text>
-        )}
       </TouchableOpacity>
     );
   };
 
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <View style={styles.titleRow}>
-        <View>
-          <Text style={styles.title}>My Groups</Text>
-          <Text style={styles.subtitle}>Manage your shared expenses</Text>
+  const renderHeader = () => {
+    const totalPos = totalOwed;
+    const totalNeg = totalOwing;
+
+    return (
+      <View style={styles.header}>
+        <View style={styles.titleRow}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={styles.logoContainer}>
+              <Ionicons name="leaf" size={24} color={Colors.dark.primary} />
+            </View>
+            <View>
+              <Text style={styles.title}>Dashboard</Text>
+              <Text style={styles.subtitle}>Net Balance: {netBalance >= 0 ? '+' : '-'}₹{Math.abs(netBalance).toFixed(0)}</Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.createButton}
+            onPress={() => router.push('/group/create')}
+          >
+            <Ionicons name="add" size={20} color={Colors.dark.background} />
+            <Text style={styles.createButtonText}>New Group</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={styles.createButton}
-          onPress={() => router.push('/group/create')}
-        >
-          <Ionicons name="add" size={20} color={Colors.dark.background} />
-          <Text style={styles.createButtonText}>Create</Text>
-        </TouchableOpacity>
+
+        {groups.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalScrollContent}
+            style={styles.horizontalScrollView}
+            decelerationRate="fast"
+          >
+            {/* Card 1: You're Owed */}
+            <View style={[styles.summaryCard, { borderLeftColor: Colors.dark.primary, borderLeftWidth: 4 }]}>
+              <View style={styles.cardHeader}>
+                <Ionicons name="arrow-up-circle" size={24} color={Colors.dark.primary} />
+                <Text style={styles.cardTitle}>You're owed</Text>
+              </View>
+              <Text style={[styles.cardValue, { color: Colors.dark.primary }]}>₹{totalPos.toFixed(0)}</Text>
+              <Text style={styles.cardSubtext}>Across all groups</Text>
+            </View>
+
+            {/* Card 2: You Owe */}
+            <View style={[styles.summaryCard, { borderLeftColor: Colors.dark.danger, borderLeftWidth: 4 }]}>
+              <View style={styles.cardHeader}>
+                <Ionicons name="arrow-down-circle" size={24} color={Colors.dark.danger} />
+                <Text style={styles.cardTitle}>You owe</Text>
+              </View>
+              <Text style={[styles.cardValue, { color: Colors.dark.danger }]}>₹{totalNeg.toFixed(0)}</Text>
+              <Text style={styles.cardSubtext}>Pending settlements</Text>
+            </View>
+          </ScrollView>
+        )}
+
+        <Text style={styles.sectionTitle}>Recent Groups</Text>
       </View>
-
-      {/* Summary Cards */}
-      {groups.length > 0 && (
-        <View style={styles.summaryContainer}>
-          {/* Net Balance */}
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Net Balance</Text>
-            <Text style={[
-              styles.summaryAmount,
-              { color: netBalance >= 0 ? Colors.dark.primary : Colors.dark.danger }
-            ]}>
-              {netBalance >= 0 ? '+' : '-'}₹{Math.abs(netBalance).toFixed(2)}
-            </Text>
-          </View>
-
-          <View style={styles.summaryRow}>
-            {/* You are owed */}
-            <View style={[styles.summaryCardSmall, { backgroundColor: Colors.dark.primaryFaded }]}>
-              <Text style={[styles.summaryLabelSmall, { color: Colors.dark.primary }]}>You are owed</Text>
-              <Text style={[styles.summaryAmountSmall, { color: Colors.dark.primary }]}>
-                ₹{totalOwed.toFixed(2)}
-              </Text>
-            </View>
-
-            {/* You owe */}
-            <View style={[styles.summaryCardSmall, { backgroundColor: Colors.dark.dangerFaded }]}>
-              <Text style={[styles.summaryLabelSmall, { color: Colors.dark.danger }]}>You owe</Text>
-              <Text style={[styles.summaryAmountSmall, { color: Colors.dark.danger }]}>
-                ₹{totalOwing.toFixed(2)}
-              </Text>
-            </View>
-          </View>
-        </View>
-      )}
-    </View>
-  );
+    );
+  };
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
@@ -254,6 +270,15 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: Colors.dark.text,
+    letterSpacing: -0.5,
+  },
+  logoContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   subtitle: {
     fontSize: 14,
@@ -274,60 +299,81 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
-  summaryContainer: {
-    gap: 12,
+  graphSection: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  horizontalScrollView: {
+    marginHorizontal: -16,
+    marginBottom: 24,
+  },
+  horizontalScrollContent: {
+    paddingHorizontal: 8,
   },
   summaryCard: {
-    backgroundColor: 'rgba(18, 18, 18, 0.8)',
-    borderRadius: 12,
-    padding: 16,
+    width: SCREEN_WIDTH * 0.7,
+    marginHorizontal: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 20,
+    padding: 20,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
-  summaryLabel: {
-    fontSize: 12,
-    color: Colors.dark.textSecondary,
-  },
-  summaryAmount: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginTop: 4,
-  },
-  summaryRow: {
+  cardHeader: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
   },
-  summaryCardSmall: {
-    flex: 1,
-    borderRadius: 12,
-    padding: 14,
+  cardTitle: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  summaryLabelSmall: {
-    fontSize: 11,
-    opacity: 0.8,
-  },
-  summaryAmountSmall: {
-    fontSize: 20,
+  cardValue: {
+    fontSize: 32,
     fontWeight: 'bold',
-    marginTop: 2,
+    marginBottom: 4,
+  },
+  cardSubtext: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.dark.text,
+    marginBottom: 16,
   },
   groupCard: {
     backgroundColor: 'rgba(18, 18, 18, 0.8)',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: Colors.dark.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  groupCardContent: {
+    flex: 1,
   },
   groupCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   groupName: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     color: Colors.dark.text,
     flex: 1,
     marginRight: 8,
@@ -338,14 +384,14 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   balanceBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
   },
   groupCardMeta: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   memberCount: {
     fontSize: 13,
@@ -353,6 +399,7 @@ const styles = StyleSheet.create({
   },
   balanceText: {
     fontSize: 12,
+    fontWeight: '500',
   },
   settledText: {
     fontSize: 12,
@@ -393,6 +440,6 @@ const styles = StyleSheet.create({
   emptyButtonText: {
     color: Colors.dark.background,
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 16,
   },
 });

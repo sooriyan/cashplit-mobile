@@ -4,7 +4,7 @@ import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 // For local development with Expo Go, use your computer's local IP address
 // For example: 'http://192.168.1.100:3000'
 // For production, use your deployed API URL
-const API_BASE_URL = 'http://192.168.1.9:3000';
+const API_BASE_URL = 'https://cashplit.vercel.app';
 
 class ApiService {
     private instance: AxiosInstance;
@@ -22,6 +22,7 @@ class ApiService {
         // Add request interceptor to include user ID header
         this.instance.interceptors.request.use(
             (config: InternalAxiosRequestConfig) => {
+                console.log('API Request:', config.method?.toUpperCase(), config.url, 'userId:', this.userId);
                 if (this.userId) {
                     config.headers['x-user-id'] = this.userId;
                 }
@@ -36,6 +37,16 @@ class ApiService {
         this.instance.interceptors.response.use(
             (response) => response,
             (error) => {
+                // Log detailed error information for debugging
+                console.log('API Error Details:', {
+                    url: error.config?.url,
+                    method: error.config?.method,
+                    status: error.response?.status,
+                    message: error.message,
+                    code: error.code,
+                    isNetworkError: error.message === 'Network Error',
+                });
+
                 if (error.response?.status === 401) {
                     // Handle unauthorized - could trigger sign out
                     console.log('Unauthorized request');
@@ -101,6 +112,25 @@ class ApiService {
         return this.post(`/api/groups/${groupId}/expenses`, data);
     }
 
+    getExpense(groupId: string, expenseId: string) {
+        return this.get(`/api/groups/${groupId}/expenses/${expenseId}`);
+    }
+
+    updateExpense(groupId: string, expenseId: string, data: {
+        description: string;
+        amount: number;
+        paidBy: string;
+        splitBetween: string[];
+        splitType: 'equal' | 'percentage';
+        percentages?: Record<string, number>;
+    }) {
+        return this.put(`/api/groups/${groupId}/expenses/${expenseId}`, data);
+    }
+
+    deleteExpense(groupId: string, expenseId: string) {
+        return this.delete(`/api/groups/${groupId}/expenses/${expenseId}`);
+    }
+
     // Members
     addMember(groupId: string, email: string) {
         return this.post(`/api/groups/${groupId}/members`, { email });
@@ -109,6 +139,10 @@ class ApiService {
     // Settlements
     markSettlementPaid(groupId: string, data: { payeeId: string; amount: number }) {
         return this.post(`/api/groups/${groupId}/settlements`, data);
+    }
+
+    leaveGroup(groupId: string) {
+        return this.post(`/api/groups/${groupId}/leave`);
     }
 
     // Profile

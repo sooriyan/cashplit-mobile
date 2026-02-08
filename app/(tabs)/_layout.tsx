@@ -1,10 +1,10 @@
-import { Tabs, Redirect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
-import { useAuth } from '../../context/AuthContext';
 import { Colors } from '@/constants/Colors';
+import { useAuth } from '../../context/AuthContext';
 
 export default function TabLayout() {
   const { user, isLoading } = useAuth();
@@ -42,7 +42,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
+          title: 'Cashplit',
+          headerShown: true,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'grid' : 'grid-outline'}

@@ -1,18 +1,19 @@
+import { Colors } from '@/constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import {
-    View,
+    ActivityIndicator,
+    Alert,
+    ScrollView,
+    StyleSheet,
     Text,
     TextInput,
-    StyleSheet,
-    ScrollView,
     TouchableOpacity,
-    ActivityIndicator,
+    View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { Colors } from '@/constants/Colors';
 
 export default function ProfileScreen() {
     const { user, signOut } = useAuth();
@@ -24,11 +25,24 @@ export default function ProfileScreen() {
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [savingUpi, setSavingUpi] = useState(false);
     const [message, setMessage] = useState('');
 
     useEffect(() => {
-        fetchProfile();
-    }, []);
+        // Only fetch profile when user is authenticated
+        if (user?.id) {
+            fetchProfile();
+        } else {
+            // Use local user data as fallback
+            setFormData({
+                name: user?.name || '',
+                email: user?.email || '',
+                phone: '',
+                upiId: '',
+            });
+            setLoading(false);
+        }
+    }, [user]);
 
     const fetchProfile = async () => {
         try {
@@ -41,6 +55,13 @@ export default function ProfileScreen() {
             });
         } catch (err) {
             console.error('Failed to fetch profile:', err);
+            // Fallback to local user data on error
+            setFormData({
+                name: user?.name || '',
+                email: user?.email || '',
+                phone: '',
+                upiId: '',
+            });
         } finally {
             setLoading(false);
         }
@@ -61,6 +82,29 @@ export default function ProfileScreen() {
             setMessage('Failed to update profile');
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleUpdateUpi = async () => {
+        if (!formData.upiId) {
+            Alert.alert('Error', 'Please enter a UPI ID');
+            return;
+        }
+
+        setSavingUpi(true);
+        setMessage('');
+
+        try {
+            await api.updateProfile({
+                upiId: formData.upiId,
+            });
+            setMessage('UPI ID updated successfully!');
+            Alert.alert('Success', 'UPI ID updated successfully!');
+        } catch (err) {
+            setMessage('Failed to update UPI ID');
+            Alert.alert('Error', 'Failed to update UPI ID');
+        } finally {
+            setSavingUpi(false);
         }
     };
 
@@ -176,31 +220,22 @@ export default function ProfileScreen() {
                                 autoCapitalize="none"
                             />
                             <Text style={styles.hint}>Used for receiving payments from your groups</Text>
-                        </View>
-                    </View>
-                </View>
 
-                {/* Preferences */}
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Ionicons name="settings" size={20} color={Colors.dark.primary} />
-                        <Text style={styles.sectionTitle}>Preferences</Text>
-                    </View>
-                    <View style={styles.sectionContent}>
-                        <TouchableOpacity style={styles.menuItem}>
-                            <View>
-                                <Text style={styles.menuItemTitle}>Notifications</Text>
-                                <Text style={styles.menuItemSubtitle}>Manage push notifications</Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.menuItem}>
-                            <View>
-                                <Text style={styles.menuItemTitle}>Currency</Text>
-                                <Text style={styles.menuItemSubtitle}>INR (₹)</Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
-                        </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.upiUpdateButton, savingUpi && styles.buttonDisabled]}
+                                onPress={handleUpdateUpi}
+                                disabled={savingUpi}
+                            >
+                                {savingUpi ? (
+                                    <ActivityIndicator size="small" color={Colors.dark.background} />
+                                ) : (
+                                    <>
+                                        <Ionicons name="checkmark-circle-outline" size={18} color={Colors.dark.background} />
+                                        <Text style={styles.upiUpdateButtonText}>Update UPI Id</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
 
@@ -365,5 +400,20 @@ const styles = StyleSheet.create({
         color: Colors.dark.textMuted,
         fontSize: 12,
         marginTop: 24,
+    },
+    upiUpdateButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        backgroundColor: Colors.dark.primary,
+        borderRadius: 8,
+        padding: 12,
+        marginTop: 12,
+    },
+    upiUpdateButtonText: {
+        color: Colors.dark.background,
+        fontSize: 14,
+        fontWeight: '600',
     },
 });
